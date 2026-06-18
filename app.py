@@ -102,9 +102,10 @@ if islem_tipi == "✨ Sıfırdan Kira Sözleşmesi Hazırlatmak İstiyorum":
             conn = sqlite3.connect("hukuk_otomasyon.db")
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO yeni_kontratlar 
-                (tarih, kiralayan, kiralayan_tc, kiralayan_adres, kiralayan_iban, kiraci, kiraci_tc, kiraci_adres, cins, bedel, para_birimi, depozito, artis, baslangic, odeme_gunu)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO yeni_kontratlar 
+    (tarih, kiralayan, kiralayan_tc, kiralayan_adres, kiralayan_iban, kiraci, kiraci_tc, kiraci_adres, cins, bedel, para_birimi, depozito, artis, baslangic, odeme_gunu)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+""", (tarih_degeri, kiralayan_degeri, ...)) # Buraya da 15 tane değişken gelmeli
             """, (
                 datetime.now().strftime("%d.%m.%Y %H:%M"), kiralayan_ad, kiralayan_tc, kiralayan_adres, kiralayan_iban,
                 kiraci_ad, kiraci_tc, kiraci_adres, gayrimenkul_turu, kira_bedeli_aylik, para_birimi, depozito_ay_sayisi,
