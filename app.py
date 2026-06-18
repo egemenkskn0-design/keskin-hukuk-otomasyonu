@@ -37,9 +37,13 @@ conn.close()
 st.set_page_config(page_title="AV. EGEMEN KESKİN", layout="wide")
 st.title("⚖️ AV. EGEMEN KESKİN")
 
-# Gizli Admin Paneli Kontrolü
-query_params = st.query_params
-is_admin_mode = query_params.get("admin") == "1"
+# Gizli Anahtar Kontrolü
+if "admin_girdi" not in st.session_state: st.session_state.admin_girdi = False
+
+if st.sidebar.text_input("Gizli Erişim", type="password") == "egemen123": # Buradaki şifreyi istediğin gibi değiştir
+    st.session_state.admin_girdi = True
+
+is_admin_mode = st.session_state.admin_girdi
 
 options = ["Sıfırdan Sözleşme", "Mevcut Sözleşme"]
 if is_admin_mode:
