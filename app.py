@@ -124,8 +124,40 @@ elif islem_tipi == "📂 Elimde İmzalanmış Mevcut Bir Sözleşme Var":
             st.success("✔️ Talebiniz başarıyla iletilmiştir.")
 
 # =====================================================================
-# SENARYO 3: YÖNETİM PANELİ (DOKUNMA)
+# SENARYO 3: YÖNETİM PANELİ
 # =====================================================================
 else:
-    # (Yönetim paneli kodların buradaki gibi kalmaya devam eder, onları değiştirmedim)
-    # ...
+    st.title("🔒 Keskin Hukuk - Yönetici Otomasyon Kontrol Paneli")
+    conn = sqlite3.connect("hukuk_otomasyon.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT password_hash FROM admin_auth")
+    auth_row = cursor.fetchone()
+    conn.close()
+    
+    if auth_row is None:
+        yeni_sifre_1 = st.text_input("Kendi Şifrenizi Oluşturun:", type="password")
+        yeni_sifre_2 = st.text_input("Şifrenizi Tekrar Yazın:", type="password")
+        if st.button("🔐 Şifremi Belirle"):
+            if yeni_sifre_1 == yeni_sifre_2 and yeni_sifre_1 != "":
+                conn = sqlite3.connect("hukuk_otomasyon.db")
+                cursor = conn.cursor()
+                cursor.execute("INSERT INTO admin_auth (id, password_hash) VALUES (1, ?)", (hash_sifre(yeni_sifre_1),))
+                conn.commit()
+                conn.close()
+                st.rerun()
+    else:
+        girilen_sifre = st.text_input("Yönetici Giriş Şifrenizi Giriniz:", type="password")
+        if hash_sifre(girilen_sifre) == auth_row[0]:
+            st.success("🔐 Erişim Onaylandı.")
+            yonetim_modu = st.radio("İşlem Seçin:", ["📬 Yeni Talepler", "📚 Eski Kontrat Arşivi"])
+            if yonetim_modu == "📬 Yeni Talepler":
+                conn = sqlite3.connect("hukuk_otomasyon.db")
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM yeni_kontratlar ORDER BY id DESC")
+                yeni_list = cursor.fetchall()
+                conn.close()
+                for k in yeni_list:
+                    st.write(f"📋 Form #{k['id']} | Kiracı: {k['kiraci']}")
+            else:
+                st.info("Arşiv listesi burada görüntülenecektir.")
