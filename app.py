@@ -89,6 +89,14 @@ if islem_tipi == "✨ Sıfırdan Kira Sözleşmesi Hazırlatmak İstiyorum":
             para_birimi = st.selectbox("Para Birimi", ["TL (₺)", "USD ($)", "EUR (€)"], key="y_pb")
             
         depozito_ay_sayisi = st.slider("Güvence Bedeli (Kaç Aylık Kira Karşılığı?)", min_value=0, max_value=12, value=2)
+        # Güvence bedeli girişi (Mevcut slider'ın)
+        depozito_ay_sayisi = st.slider("Güvence Bedeli (Kaç Aylık Kira Karşılığı?)", min_value=0, max_value=12, value=2)
+
+        # HUKUKİ KONTROL (Buraya ekle!)
+        if gayrimenkul_turu == "Çatılı İşyeri" and depozito_ay_sayisi > 3:
+            st.error("⚠️ Türk Borçlar Kanunu md. 342 uyarınca, konut ve çatılı iş yeri kiralarında güvence bedeli 3 aylık kira bedelini aşamaz.")
+        elif gayrimenkul_turu == "Konut" and depozito_ay_sayisi > 3:
+            st.error("⚠️ Türk Borçlar Kanunu md. 342 uyarınca, konutlarda güvence bedeli 3 aylık kira bedelini aşamaz.")
     
     with col4:
         sozlesme_artis_orani = st.slider("Yeni Dönem Yıllık Artış Oranı (%)", min_value=0, max_value=150, value=50)
