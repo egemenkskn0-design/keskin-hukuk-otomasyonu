@@ -150,7 +150,7 @@ elif islem_tipi == "📂 Elimde İmzalanmış Mevcut Bir Sözleşme Var":
             conn = sqlite3.connect("hukuk_otomasyon.db")
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO eski_kontratlar (islem_tarihi, kiralayan, kiraci, baslangic_tarihi, aylik_bedel, para_birimi, dosya_adi, notlar)
+            INSERT INTO eski_kontratlar (islem_tarihi, kiralayan, kiraci, baslangic_tarihi, aylik_bedel, para_birimi, dosya_adi, notlar)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 datetime.now().strftime("%d.%m.%Y %H:%M"), e_kiralayan, e_kiraci, e_baslangic.strftime('%d.%m.%Y'),
