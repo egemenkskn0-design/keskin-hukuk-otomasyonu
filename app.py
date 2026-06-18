@@ -34,10 +34,12 @@ conn.commit()
 conn.close()
 
 # --- Arayüz ---
-st.set_page_config(layout="wide")
+st.set_page_config(page_title="AV. EGEMEN KESKİN", layout="wide")
+st.title("⚖️ AV. EGEMEN KESKİN")
 islem = st.sidebar.radio("Seçim:", ["Sıfırdan Sözleşme", "Mevcut Sözleşme", "Admin Paneli"])
 
 if islem == "Sıfırdan Sözleşme":
+    st.subheader("Sıfırdan Sözleşme Hazırlama")
     kiralayan = st.text_input("Kiraya Veren Adı")
     kiralayan_tc = st.text_input("Kiraya Veren TC")
     kiralayan_adres = st.text_area("Adres")
@@ -58,7 +60,20 @@ if islem == "Sıfırdan Sözleşme":
                   (datetime.now().strftime("%d.%m.%Y"), kiralayan, kiralayan_tc, kiralayan_adres, kiralayan_iban, kiraci, kiraci_tc, kiraci_adres, "Konut", bedel, para, 2, artis, baslangic.strftime("%d.%m.%Y"), odeme))
         conn.commit()
         conn.close()
-        st.success("Kaydedildi!")
+        st.success("Sözleşme talebiniz iletildi.")
+
+elif islem == "Mevcut Sözleşme":
+    st.subheader("Mevcut Sözleşme Bildirimi")
+    e_kiralayan = st.text_input("Kiraya Veren")
+    e_kiraci = st.text_input("Kiracı")
+    e_not = st.text_area("Notlar")
+    if st.button("İlet"):
+        conn = sqlite3.connect("hukuk_otomasyon.db")
+        c = conn.cursor()
+        c.execute("INSERT INTO eski_kontratlar (kiralayan, kiraci, notlar) VALUES (?,?,?)", (e_kiralayan, e_kiraci, e_not))
+        conn.commit()
+        conn.close()
+        st.success("Bilgiler alındı.")
 
 elif islem == "Admin Paneli":
     conn = sqlite3.connect("hukuk_otomasyon.db")
@@ -68,7 +83,7 @@ elif islem == "Admin Paneli":
     conn.close()
     
     if not auth:
-        s = st.text_input("Yeni şifre oluştur:", type="password")
+        s = st.text_input("Sistem Şifresi Belirle:", type="password")
         if st.button("Kur"):
             conn = sqlite3.connect("hukuk_otomasyon.db")
             c = conn.cursor()
@@ -79,6 +94,7 @@ elif islem == "Admin Paneli":
     else:
         giris = st.text_input("Şifre:", type="password")
         if hash_sifre(giris) == auth[0]:
+            st.write("### 📬 Yeni Sözleşme Talepleri")
             conn = sqlite3.connect("hukuk_otomasyon.db")
             conn.row_factory = sqlite3.Row
             c = conn.cursor()
