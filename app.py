@@ -37,7 +37,7 @@ conn.close()
 st.set_page_config(page_title="AV. EGEMEN KESKİN", layout="wide")
 st.title("⚖️ AV. EGEMEN KESKİN")
 
-# Gizli parametre kontrolü: Sadece URL'de ?admin=1 varsa Admin Paneli'ni gösterir
+# Gizli Admin Paneli Kontrolü
 query_params = st.query_params
 is_admin_mode = query_params.get("admin") == "1"
 
@@ -45,21 +45,58 @@ options = ["Sıfırdan Sözleşme", "Mevcut Sözleşme"]
 if is_admin_mode:
     options.append("Admin Paneli")
 
-islem = st.sidebar.radio("Seçim:", options)
+islem = st.sidebar.radio("İşlem Seçiniz:", options)
 
 if islem == "Sıfırdan Sözleşme":
-    st.subheader("Sıfırdan Sözleşme Hazırlama")
-    # ... (Sıfırdan sözleşme formun aynı kalacak) ...
-    kiralayan = st.text_input("Kiraya Veren Adı")
-    # (Buraya diğer alanlarını ekle)
+    st.subheader("📋 Sıfırdan Sözleşme Hazırlama Formu")
+    col1, col2 = st.columns(2)
+    with col1:
+        kiralayan = st.text_input("Kiraya Veren Adı/Unvanı")
+        kiralayan_tc = st.text_input("Kiraya Veren T.C./Vergi No")
+        kiralayan_adres = st.text_area("Tebligat Adresi")
+        kiralayan_iban = st.text_input("IBAN")
+    with col2:
+        kiraci = st.text_input("Kiracı Adı/Unvanı")
+        kiraci_tc = st.text_input("Kiracı T.C./Vergi No")
+        kiraci_adres = st.text_area("Kiracı İkametgah Adresi")
+    
+    bedel = st.number_input("Aylık Kira Bedeli", value=20000)
+    para = st.selectbox("Para Birimi", ["TL", "USD", "EUR"])
+    artis = st.slider("Artış Oranı (%)", 0, 100, 50)
+    baslangic = st.date_input("Başlangıç Tarihi")
+    odeme = st.number_input("Ödeme Günü", 1, 30, 5)
+    
     if st.button("Sisteme Kaydet"):
-        st.success("Talebiniz iletildi.")
+        conn = sqlite3.connect("hukuk_otomasyon.db")
+        c = conn.cursor()
+        c.execute("INSERT INTO yeni_kontratlar (tarih, kiralayan, kiralayan_tc, kiralayan_adres, kiralayan_iban, kiraci, kiraci_tc, kiraci_adres, bedel, para_birimi, artis, baslangic, odeme_gunu) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", 
+                  (datetime.now().strftime("%d.%m.%Y"), kiralayan, kiralayan_tc, kiralayan_adres, kiralayan_iban, kiraci, kiraci_tc, kiraci_adres, bedel, para, artis, baslangic.strftime("%d.%m.%Y"), odeme))
+        conn.commit()
+        conn.close()
+        st.success("Talebiniz alınmıştır.")
 
 elif islem == "Mevcut Sözleşme":
-    st.subheader("📁 Mevcut Sözleşme Dosyası Yükleme")
-    # ... (Mevcut sözleşme formun aynı kalacak) ...
+    st.subheader("📁 Mevcut Sözleşme İnceleme Talebi")
+    col1, col2 = st.columns(2)
+    with col1:
+        e_kiralayan = st.text_input("Kiraya Veren")
+        e_kiralayan_tc = st.text_input("Kiraya Veren T.C.")
+    with col2:
+        e_kiraci = st.text_input("Kiracı")
+        e_kiraci_tc = st.text_input("Kiracı T.C.")
+    
+    yuklenen_dosya = st.file_uploader("Sözleşme PDF/Fotoğrafı Yükle", type=["pdf", "jpg", "png"])
+    e_not = st.text_area("Talep ve Notlarınız")
+    
     if st.button("Avukata Gönder"):
-        st.success("Talebiniz iletildi.")
+        dosya_adi = yuklenen_dosya.name if yuklenen_dosya else "Dosya Yüklenmedi"
+        conn = sqlite3.connect("hukuk_otomasyon.db")
+        c = conn.cursor()
+        c.execute("INSERT INTO eski_kontratlar (islem_tarihi, kiralayan, kiralayan_tc, kiraci, kiraci_tc, dosya_adi, notlar) VALUES (?,?,?,?,?,?,?)", 
+                  (datetime.now().strftime("%d.%m.%Y"), e_kiralayan, e_kiralayan_tc, e_kiraci, e_kiraci_tc, dosya_adi, e_not))
+        conn.commit()
+        conn.close()
+        st.success("Belgeleriniz iletildi.")
 
 elif islem == "Admin Paneli":
     st.header("🔒 Yönetici Paneli")
@@ -69,8 +106,33 @@ elif islem == "Admin Paneli":
     auth = c.fetchone()
     conn.close()
     
-    # Giriş kontrolü...
-    giris = st.text_input("Şifre:", type="password")
-    if auth and hash_sifre(giris) == auth[0]:
-        st.success("Erişim Onaylandı")
-        # Listelemeler buraya...
+    if not auth:
+        s = st.text_input("Şifre Oluştur:", type="password")
+        if st.button("Kur"):
+            conn = sqlite3.connect("hukuk_otomasyon.db")
+            c = conn.cursor()
+            c.execute("INSERT INTO admin_auth (password_hash) VALUES (?)", (hash_sifre(s),))
+            conn.commit()
+            conn.close()
+            st.rerun()
+    else:
+        giris = st.text_input("Yönetici Şifresi:", type="password")
+        if hash_sifre(giris) == auth[0]:
+            st.success("Erişim Onaylandı")
+            st.subheader("📬 Yeni Sözleşme Talepleri")
+            conn = sqlite3.connect("hukuk_otomasyon.db")
+            conn.row_factory = sqlite3.Row
+            c = conn.cursor()
+            c.execute("SELECT * FROM yeni_kontratlar")
+            kayitlar = c.fetchall()
+            for k in kayitlar:
+                with st.expander(f"Müvekkil: {k['kiraci']}"):
+                    st.write(f"Kiraya Veren: {k['kiralayan']}")
+                    data = word_uret(k)
+                    st.download_button("📜 Sözleşmeyi İndir", data, f"Sozlesme_{k['kiraci']}.docx")
+            
+            st.subheader("📂 Mevcut Sözleşme İncelemeleri")
+            c.execute("SELECT * FROM eski_kontratlar")
+            eski = c.fetchall()
+            for e in eski:
+                st.write(f"Müvekkil: {e['
