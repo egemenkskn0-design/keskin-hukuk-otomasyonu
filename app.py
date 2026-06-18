@@ -7,63 +7,87 @@ from datetime import datetime
 import sqlite3
 import hashlib
 
-# =====================================================================
-# WORD ÜRETİM FONKSİYONU
-# =====================================================================
+# --- Fonksiyonlar ---
+def hash_sifre(sifre): return hashlib.sha256(sifre.encode()).hexdigest()
+
 def word_uret(v):
     doc = docx.Document()
-    # Başlık
-    title = doc.add_paragraph("KİRA SÖZLEŞMESİ TASLAĞI")
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    title.runs[0].bold = True
-    title.runs[0].font.size = Pt(16)
-    
+    p = doc.add_paragraph("KİRA SÖZLEŞMESİ")
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.runs[0].bold = True
     doc.add_paragraph(f"Tarih: {datetime.now().strftime('%d.%m.%Y')}")
-    doc.add_paragraph("\n1. TARAFLAR\n")
-    doc.add_paragraph(f"KİRAYA VEREN: {v['kiralayan']}\nT.C./Vergi No: {v['kiralayan_tc']}\nAdres: {v['kiralayan_adres']}\nIBAN: {v['kiralayan_iban']}")
-    doc.add_paragraph(f"\nKİRACI: {v['kiraci']}\nT.C./Pasaport No: {v['kiraci_tc']}\nAdres: {v['kiraci_adres']}")
-    
-    doc.add_paragraph("\n2. KİRA ŞARTLARI\n")
-    doc.add_paragraph(f"Taşınmaz Cinsi: {v['cins']}\nAylık Kira Bedeli: {v['bedel']:,} {v['para_birimi']}\nGüvence Bedeli: {v['depozito']} Aylık Kira\nYıllık Artış Oranı: %{v['artis']}\nBaşlangıç Tarihi: {v['baslangic']}\nÖdeme Günü: Her ayın {v['odeme_gunu']}.")
-    
+    doc.add_paragraph(f"KİRAYA VEREN: {v['kiralayan']} (TC: {v['kiralayan_tc']})\nAdres: {v['kiralayan_adres']}\nIBAN: {v['kiralayan_iban']}")
+    doc.add_paragraph(f"KİRACI: {v['kiraci']} (TC: {v['kiraci_tc']})\nAdres: {v['kiraci_adres']}")
+    doc.add_paragraph(f"ŞARTLAR: {v['bedel']} {v['para_birimi']} - Başlangıç: {v['baslangic']} - Ödeme Günü: {v['odeme_gunu']}")
     bio = io.BytesIO()
     doc.save(bio)
     bio.seek(0)
     return bio
 
-# =====================================================================
-# GERİ KALAN ALTYAPI
-# =====================================================================
-def hash_sifre(sifre): return hashlib.sha256(sifre.encode()).hexdigest()
+# --- Veritabanı ---
+conn = sqlite3.connect("hukuk_otomasyon.db")
+c = conn.cursor()
+c.execute("CREATE TABLE IF NOT EXISTS admin_auth (id INTEGER PRIMARY KEY, password_hash TEXT)")
+c.execute("CREATE TABLE IF NOT EXISTS yeni_kontratlar (id INTEGER PRIMARY KEY AUTOINCREMENT, tarih TEXT, kiralayan TEXT, kiralayan_tc TEXT, kiralayan_adres TEXT, kiralayan_iban TEXT, kiraci TEXT, kiraci_tc TEXT, kiraci_adres TEXT, cins TEXT, bedel REAL, para_birimi TEXT, depozito INTEGER, artis INTEGER, baslangic TEXT, odeme_gunu INTEGER)")
+c.execute("CREATE TABLE IF NOT EXISTS eski_kontratlar (id INTEGER PRIMARY KEY AUTOINCREMENT, islem_tarihi TEXT, kiralayan TEXT, kiraci TEXT, baslangic_tarihi TEXT, aylik_bedel REAL, para_birimi TEXT, dosya_adi TEXT, notlar TEXT)")
+conn.commit()
+conn.close()
 
-def veri_tabani_hazirla():
+# --- Arayüz ---
+st.set_page_config(layout="wide")
+islem = st.sidebar.radio("Seçim:", ["Sıfırdan Sözleşme", "Mevcut Sözleşme", "Admin Paneli"])
+
+if islem == "Sıfırdan Sözleşme":
+    kiralayan = st.text_input("Kiraya Veren Adı")
+    kiralayan_tc = st.text_input("Kiraya Veren TC")
+    kiralayan_adres = st.text_area("Adres")
+    kiralayan_iban = st.text_input("IBAN")
+    kiraci = st.text_input("Kiracı Adı")
+    kiraci_tc = st.text_input("Kiracı TC")
+    kiraci_adres = st.text_area("Kiracı Adresi")
+    bedel = st.number_input("Kira Bedeli")
+    para = st.selectbox("Para Birimi", ["TL", "USD", "EUR"])
+    artis = st.slider("Artış %", 0, 150, 50)
+    baslangic = st.date_input("Başlangıç")
+    odeme = st.number_input("Ödeme Günü", 1, 30, 5)
+    
+    if st.button("Kaydet"):
+        conn = sqlite3.connect("hukuk_otomasyon.db")
+        c = conn.cursor()
+        c.execute("INSERT INTO yeni_kontratlar (tarih, kiralayan, kiralayan_tc, kiralayan_adres, kiralayan_iban, kiraci, kiraci_tc, kiraci_adres, cins, bedel, para_birimi, depozito, artis, baslangic, odeme_gunu) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", 
+                  (datetime.now().strftime("%d.%m.%Y"), kiralayan, kiralayan_tc, kiralayan_adres, kiralayan_iban, kiraci, kiraci_tc, kiraci_adres, "Konut", bedel, para, 2, artis, baslangic.strftime("%d.%m.%Y"), odeme))
+        conn.commit()
+        conn.close()
+        st.success("Kaydedildi!")
+
+elif islem == "Admin Paneli":
     conn = sqlite3.connect("hukuk_otomasyon.db")
-    cursor = conn.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS admin_auth (id INTEGER PRIMARY KEY, password_hash TEXT)")
-    cursor.execute("CREATE TABLE IF NOT EXISTS yeni_kontratlar (id INTEGER PRIMARY KEY AUTOINCREMENT, tarih TEXT, kiralayan TEXT, kiralayan_tc TEXT, kiralayan_adres TEXT, kiralayan_iban TEXT, kiraci TEXT, kiraci_tc TEXT, kiraci_adres TEXT, cins TEXT, bedel REAL, para_birimi TEXT, depozito INTEGER, artis INTEGER, baslangic TEXT, odeme_gunu INTEGER)")
-    cursor.execute("CREATE TABLE IF NOT EXISTS eski_kontratlar (id INTEGER PRIMARY KEY AUTOINCREMENT, islem_tarihi TEXT, kiralayan TEXT, kiraci TEXT, baslangic_tarihi TEXT, aylik_bedel REAL, para_birimi TEXT, dosya_adi TEXT, notlar TEXT)")
-    conn.commit()
+    c = conn.cursor()
+    c.execute("SELECT password_hash FROM admin_auth")
+    auth = c.fetchone()
     conn.close()
-
-veri_tabani_hazirla()
-st.set_page_config(page_title="Keskin Hukuk", layout="wide")
-
-# (SENARYO 1 VE 2 AYNI KALACAK - Buraya senin daha önce kullandığın formları ekle)
-# ... (Form kodlarını buraya ekleyeceksin) ...
-
-# =====================================================================
-# YÖNETİM PANELİ (GÜNCELLENMİŞ)
-# =====================================================================
-# [Senaryo 3 kısmında 'Yeni Talepler' döngüsü içine şu butonu ekledim:]
-# ...
-#    for k in yeni_list:
-#        with st.expander(f"📋 Form #{k['id']} | {k['kiraci']}"):
-#            ... (bilgiler) ...
-#            
-#            w_data = word_uret(k)
-#            st.download_button(
-#                label="📜 Resmi Word Sözleşmesini İndir",
-#                data=w_data,
-#                file_name=f"Sozlesme_{k['kiraci']}.docx",
-#                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-#            )
+    
+    if not auth:
+        s = st.text_input("Yeni şifre oluştur:", type="password")
+        if st.button("Kur"):
+            conn = sqlite3.connect("hukuk_otomasyon.db")
+            c = conn.cursor()
+            c.execute("INSERT INTO admin_auth (password_hash) VALUES (?)", (hash_sifre(s),))
+            conn.commit()
+            conn.close()
+            st.rerun()
+    else:
+        giris = st.text_input("Şifre:", type="password")
+        if hash_sifre(giris) == auth[0]:
+            conn = sqlite3.connect("hukuk_otomasyon.db")
+            conn.row_factory = sqlite3.Row
+            c = conn.cursor()
+            c.execute("SELECT * FROM yeni_kontratlar")
+            kayitlar = c.fetchall()
+            conn.close()
+            for k in kayitlar:
+                with st.expander(f"Müvekkil: {k['kiraci']}"):
+                    st.write(f"Kiraya Veren: {k['kiralayan']}")
+                    st.write(f"Bedel: {k['bedel']} {k['para_birimi']}")
+                    data = word_uret(k)
+                    st.download_button("📜 Word İndir", data, f"Sozlesme_{k['kiraci']}.docx")
