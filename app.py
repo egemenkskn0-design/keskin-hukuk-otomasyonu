@@ -29,7 +29,7 @@ conn = sqlite3.connect("hukuk_otomasyon.db")
 c = conn.cursor()
 c.execute("CREATE TABLE IF NOT EXISTS admin_auth (id INTEGER PRIMARY KEY, password_hash TEXT)")
 c.execute("CREATE TABLE IF NOT EXISTS yeni_kontratlar (id INTEGER PRIMARY KEY AUTOINCREMENT, tarih TEXT, kiralayan TEXT, kiralayan_tc TEXT, kiralayan_adres TEXT, kiralayan_iban TEXT, kiraci TEXT, kiraci_tc TEXT, kiraci_adres TEXT, cins TEXT, bedel REAL, para_birimi TEXT, depozito INTEGER, artis INTEGER, baslangic TEXT, odeme_gunu INTEGER)")
-c.execute("CREATE TABLE IF NOT EXISTS eski_kontratlar (id INTEGER PRIMARY KEY AUTOINCREMENT, islem_tarihi TEXT, kiralayan TEXT, kiraci TEXT, baslangic_tarihi TEXT, aylik_bedel REAL, para_birimi TEXT, dosya_adi TEXT, notlar TEXT)")
+c.execute("CREATE TABLE IF NOT EXISTS eski_kontratlar (id INTEGER PRIMARY KEY AUTOINCREMENT, islem_tarihi TEXT, kiralayan TEXT, kiralayan_tc TEXT, kiraci TEXT, kiraci_tc TEXT, dosya_adi TEXT, notlar TEXT)")
 conn.commit()
 conn.close()
 
@@ -53,27 +53,37 @@ if islem == "Sıfırdan Sözleşme":
     baslangic = st.date_input("Başlangıç")
     odeme = st.number_input("Ödeme Günü", 1, 30, 5)
     
-    if st.button("Kaydet"):
+    if st.button("Sisteme Kaydet"):
         conn = sqlite3.connect("hukuk_otomasyon.db")
         c = conn.cursor()
         c.execute("INSERT INTO yeni_kontratlar (tarih, kiralayan, kiralayan_tc, kiralayan_adres, kiralayan_iban, kiraci, kiraci_tc, kiraci_adres, cins, bedel, para_birimi, depozito, artis, baslangic, odeme_gunu) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", 
                   (datetime.now().strftime("%d.%m.%Y"), kiralayan, kiralayan_tc, kiralayan_adres, kiralayan_iban, kiraci, kiraci_tc, kiraci_adres, "Konut", bedel, para, 2, artis, baslangic.strftime("%d.%m.%Y"), odeme))
         conn.commit()
         conn.close()
-        st.success("Sözleşme talebiniz iletildi.")
+        st.success("Talebiniz başarıyla alındı.")
 
 elif islem == "Mevcut Sözleşme":
-    st.subheader("Mevcut Sözleşme Bildirimi")
-    e_kiralayan = st.text_input("Kiraya Veren")
-    e_kiraci = st.text_input("Kiracı")
-    e_not = st.text_area("Notlar")
-    if st.button("İlet"):
+    st.subheader("📁 Mevcut Sözleşme Dosyası Yükleme")
+    col1, col2 = st.columns(2)
+    with col1:
+        e_kiralayan = st.text_input("Kiraya Veren Adı Soyadı")
+        e_kiralayan_tc = st.text_input("Kiraya Veren TC")
+    with col2:
+        e_kiraci = st.text_input("Kiracı Adı Soyadı")
+        e_kiraci_tc = st.text_input("Kiracı TC")
+    
+    yuklenen_dosya = st.file_uploader("Sözleşme PDF/Resim Yükle", type=["pdf", "jpg", "png"])
+    e_not = st.text_area("Talep ve Notlarınız (Neleri incelememi istersiniz?)")
+    
+    if st.button("Avukata Gönder"):
+        dosya_adi = yuklenen_dosya.name if yuklenen_dosya else "Dosya Yok"
         conn = sqlite3.connect("hukuk_otomasyon.db")
         c = conn.cursor()
-        c.execute("INSERT INTO eski_kontratlar (kiralayan, kiraci, notlar) VALUES (?,?,?)", (e_kiralayan, e_kiraci, e_not))
+        c.execute("INSERT INTO eski_kontratlar (islem_tarihi, kiralayan, kiralayan_tc, kiraci, kiraci_tc, dosya_adi, notlar) VALUES (?,?,?,?,?,?,?)", 
+                  (datetime.now().strftime("%d.%m.%Y"), e_kiralayan, e_kiralayan_tc, e_kiraci, e_kiraci_tc, dosya_adi, e_not))
         conn.commit()
         conn.close()
-        st.success("Bilgiler alındı.")
+        st.success("Sözleşmeniz ve talebiniz başarıyla iletildi.")
 
 elif islem == "Admin Paneli":
     conn = sqlite3.connect("hukuk_otomasyon.db")
@@ -94,16 +104,21 @@ elif islem == "Admin Paneli":
     else:
         giris = st.text_input("Şifre:", type="password")
         if hash_sifre(giris) == auth[0]:
-            st.write("### 📬 Yeni Sözleşme Talepleri")
+            st.subheader("📬 Yeni Talepler")
             conn = sqlite3.connect("hukuk_otomasyon.db")
             conn.row_factory = sqlite3.Row
             c = conn.cursor()
             c.execute("SELECT * FROM yeni_kontratlar")
             kayitlar = c.fetchall()
-            conn.close()
             for k in kayitlar:
                 with st.expander(f"Müvekkil: {k['kiraci']}"):
-                    st.write(f"Kiraya Veren: {k['kiralayan']}")
-                    st.write(f"Bedel: {k['bedel']} {k['para_birimi']}")
+                    st.write(f"Kiraya Veren: {k['kiralayan']} | TC: {k['kiralayan_tc']}")
                     data = word_uret(k)
-                    st.download_button("📜 Word İndir", data, f"Sozlesme_{k['kiraci']}.docx")
+                    st.download_button("📜 Sözleşmeyi İndir", data, f"Sozlesme_{k['kiraci']}.docx")
+            
+            st.subheader("📂 Mevcut Sözleşme İncelemeleri")
+            c.execute("SELECT * FROM eski_kontratlar")
+            eski_kayitlar = c.fetchall()
+            for e in eski_kayitlar:
+                st.write(f"**Müvekkil:** {e['kiraci']} | **Talep:** {e['notlar']} | **Dosya:** {e['dosya_adi']}")
+            conn.close()
