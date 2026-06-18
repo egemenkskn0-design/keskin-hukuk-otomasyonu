@@ -150,6 +150,8 @@ else:
         if hash_sifre(girilen_sifre) == auth_row[0]:
             st.success("🔐 Erişim Onaylandı.")
             yonetim_modu = st.radio("İşlem Seçin:", ["📬 Yeni Talepler", "📚 Eski Kontrat Arşivi"])
+            
+            # --- YENİ TALEPLER GÖRÜNTÜLEME (DETAYLI) ---
             if yonetim_modu == "📬 Yeni Talepler":
                 conn = sqlite3.connect("hukuk_otomasyon.db")
                 conn.row_factory = sqlite3.Row
@@ -158,6 +160,28 @@ else:
                 yeni_list = cursor.fetchall()
                 conn.close()
                 for k in yeni_list:
-                    st.write(f"📋 Form #{k['id']} | Kiracı: {k['kiraci']}")
+                    with st.expander(f"📋 Form #{k['id']} | Kiracı: {k['kiraci']} ({k['tarih']})"):
+                        st.write(f"**Kiraya Veren:** {k['kiralayan']} | **TC:** {k['kiralayan_tc']}")
+                        st.write(f"**Adres:** {k['kiralayan_adres']}")
+                        st.write(f"**IBAN:** {k['kiralayan_iban']}")
+                        st.write(f"**Şartlar:** {k['bedel']:,} {k['para_birimi']} | Artış: %{k['artis']} | Başlangıç: {k['baslangic']}")
+            
+            # --- ESKİ KONTRAT ARŞİVİ (ANALİZLİ) ---
             else:
-                st.info("Arşiv listesi burada görüntülenecektir.")
+                conn = sqlite3.connect("hukuk_otomasyon.db")
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM eski_kontratlar ORDER BY id DESC")
+                eski_list = cursor.fetchall()
+                conn.close()
+                for e in eski_list:
+                    with st.expander(f"📚 Arşiv #{e['id']} | {e['kiralayan']} & {e['kiraci']}"):
+                        st.write(f"**Tarih:** {e['baslangic_tarihi']} | **Bedel:** {e['aylik_bedel']:,} {e['para_birimi']}")
+                        st.write(f"**Not:** {e['notlar']}")
+                        # Hukuki Durum Analizi
+                        try:
+                            fark = (datetime.now().date() - datetime.strptime(e['baslangic_tarihi'], '%d.%m.%Y').date()).days // 365
+                            st.write(f"Sözleşme Yaşı: {fark} Yıl")
+                            if fark >= 5: st.warning("⚠️ 5 yıl doldu! Kira tespit davası açılabilir.")
+                            if fark >= 10: st.error("🚨 10 yıl doldu! Tahliye ihtar hakkı mevcut.")
+                        except: pass
