@@ -150,15 +150,12 @@ elif islem_tipi == "📂 Elimde İmzalanmış Mevcut Bir Sözleşme Var":
             conn = sqlite3.connect("hukuk_otomasyon.db")
             cursor = conn.cursor()
             cursor.execute("""
-            INSERT INTO eski_kontratlar (islem_tarihi, kiralayan, kiraci, baslangic_tarihi, aylik_bedel, para_birimi, dosya_adi, notlar)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                datetime.now().strftime("%d.%m.%Y %H:%M"), e_kiralayan, e_kiraci, e_baslangic.strftime('%d.%m.%Y'),
-                e_bedel, e_pb, dosya_adi, e_notlar
-            ))
-            conn.commit()
-            conn.close()
-            st.success("✔️ Sözleşme evrakınız ve talebiniz incelenmek üzere Avukat Egemen Keskin'in dijital arşivine başarıyla iletilmiştir.")
+            cursor.execute("""
+        INSERT INTO eski_kontratlar 
+        (islem_tarihi, kiralayan, kiraci, baslangic_tarihi, aylik_bedel, para_birimi, dosya_adi, notlar)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (islem_tarihi, kiralayan, kiraci, baslangic_tarihi, aylik_bedel, para_birimi, dosya_adi, notlar))
+            st.success("✔️ Sözleşme evrakınız ve talebiniz incelenmek üzere Av. Egemen Keskin'in dijital arşivine başarıyla iletilmiştir.")
 
 # =====================================================================
 # SENARYO 3: TAMAMEN SANA ÖZEL ŞİFRELİ AVUKAT YÖNETİM PANELİ
