@@ -135,4 +135,5 @@ elif islem == "Admin Paneli":
             c.execute("SELECT * FROM eski_kontratlar")
             eski = c.fetchall()
             for e in eski:
-                st.write(f"Müvekkil: {e['
+                st.write(f"Müvekkil: {e['kiraci']} | Not: {e['notlar']} | Dosya: {e['dosya_adi']}")
+            conn.close()
